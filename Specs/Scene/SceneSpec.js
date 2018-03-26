@@ -5,10 +5,12 @@ defineSuite([
         'Core/Cartesian3',
         'Core/CesiumTerrainProvider',
         'Core/Color',
+        'Core/ColorGeometryInstanceAttribute',
         'Core/defined',
         'Core/Ellipsoid',
         'Core/GeographicProjection',
         'Core/GeometryInstance',
+        'Core/HeadingPitchRoll',
         'Core/JulianDate',
         'Core/Math',
         'Core/PerspectiveFrustum',
@@ -17,7 +19,9 @@ defineSuite([
         'Core/RectangleGeometry',
         'Core/RequestScheduler',
         'Core/RuntimeError',
+        'Core/SphereGeometry',
         'Core/TaskProcessor',
+        'Core/Transforms',
         'Core/WebGLConstants',
         'Core/WebMercatorProjection',
         'Renderer/DrawCommand',
@@ -33,6 +37,7 @@ defineSuite([
         'Scene/FrameState',
         'Scene/Globe',
         'Scene/Material',
+        'Scene/PerInstanceColorAppearance',
         'Scene/Primitive',
         'Scene/PrimitiveCollection',
         'Scene/SceneTransforms',
@@ -49,10 +54,12 @@ defineSuite([
         Cartesian3,
         CesiumTerrainProvider,
         Color,
+        ColorGeometryInstanceAttribute,
         defined,
         Ellipsoid,
         GeographicProjection,
         GeometryInstance,
+        HeadingPitchRoll,
         JulianDate,
         CesiumMath,
         PerspectiveFrustum,
@@ -61,7 +68,9 @@ defineSuite([
         RectangleGeometry,
         RequestScheduler,
         RuntimeError,
+        SphereGeometry,
         TaskProcessor,
+        Transforms,
         WebGLConstants,
         WebMercatorProjection,
         DrawCommand,
@@ -77,6 +86,7 @@ defineSuite([
         FrameState,
         Globe,
         Material,
+        PerInstanceColorAppearance,
         Primitive,
         PrimitiveCollection,
         SceneTransforms,
@@ -134,6 +144,31 @@ defineSuite([
             }),
             appearance: new EllipsoidSurfaceAppearance({
                 aboveGround: false
+            }),
+            asynchronous: false
+        });
+    }
+
+    function createSphere() {
+        var radius = 300000.0;
+        var position = Cartesian3.fromDegrees(-100.0, 40.0);
+        var modelMatrix = Transforms.eastNorthUpToFixedFrame(position);
+
+        return new Primitive({
+            geometryInstances: new GeometryInstance({
+                geometry : new SphereGeometry({
+                    vertexFormat : PerInstanceColorAppearance.VERTEX_FORMAT,
+                    radius : radius
+                }),
+                attributes : {
+                    color : ColorGeometryInstanceAttribute.fromColor(new Color(1.0, 0.0, 0.0, 1.0))
+                },
+                modelMatrix : modelMatrix
+            }),
+            appearance: new PerInstanceColorAppearance({
+                flat : true,
+                translucent : false,
+                closed : true
             }),
             asynchronous: false
         });
@@ -487,7 +522,7 @@ defineSuite([
         scene.globe = globe;
         expect(globe.isDestroyed()).toEqual(false);
 
-        scene.globe = null;
+        scene.globe = undefined;
         expect(globe.isDestroyed()).toEqual(true);
 
         scene.destroyForSpecs();
@@ -1643,4 +1678,35 @@ defineSuite([
 
         scene.destroyForSpecs();
     });
+
+    it('occludes primitive when globe is disabled', function() {
+        var scene = createScene();
+        var globe = new Globe(Ellipsoid.WGS84);
+        scene.globe = globe;
+        scene.globe.show = false;
+
+        var sphere = createSphere();
+        scene.primitives.add(sphere);
+
+        scene.camera.setView({
+            destination: new Cartesian3(-1191792.869033361, -6172338.427474239, 4922239.578721274),
+            orientation: new HeadingPitchRoll(0.06419672432449897, -1.46348071990342, 0.0006942535516714088)
+        });
+        expect(scene).toRender([255, 0, 0, 255]);
+
+        // scene.renderForSpecs();
+        // expect(commandList.length).toBe(1);
+        //
+        scene.camera.setView({
+            destination: new Cartesian3(1172195.7861261354, 4711418.039629744, -4815150.407079753),
+            orientation: new HeadingPitchRoll(3.446136209624238, -1.500022501605324, 2.839555884050373)
+        });
+        scene.renderForSpecs();
+        expect(scene).toRender([255, 0, 0, 255]);
+
+
+        //scene.destroyForSpecs();
+
+    });
+
 }, 'WebGL');
