@@ -753,6 +753,49 @@ defineSuite([
         });
     });
 
+    it('process tiles in loaded order', function() {
+        viewNothing();
+        return Resource.fetch(batchedColorsB3dmUrl).then(function(tileArrayBuffer) {
+            return Cesium3DTilesTester.loadTileset(scene, tilesetUrl).then(function(tileset) {
+                var loadedUrls = [];
+                var processedUrls = [];
+
+                function getProcessTileFunction(tile) {
+                    return function(tileset, frameState) {
+                        var url = tile._header.content.url;
+                        console.log('hat' + url);
+                        if (processedUrls.indexOf(url) === -1) {
+                            processedUrls.push(url);
+                        }
+                        tile.processOld(tileset, frameState);
+                    };
+                }
+
+                var root = tileset._root;
+                var tiles = root.children.slice();
+                tiles.push(root);
+                var length = tiles.length;
+                for (var i = 0; i < length; ++i) {
+                    var tile = tiles[i];
+                    tile.processOld = tile.process;
+                    spyOn(tile, 'process').and.callFake(getProcessTileFunction(tile));
+                }
+
+                spyOn(Resource.prototype, 'fetchArrayBuffer').and.callFake(function() {
+                    loadedUrls.push(this._url);
+                    return when.resolve(tileArrayBuffer);
+                });
+
+                viewAllTiles();
+                return Cesium3DTilesTester.waitForTilesLoaded(scene, tileset).then(function() {
+                    console.log(loadedUrls);
+                    console.log(processedUrls);
+                    expect(loadedUrls).toEqual(processedUrls);
+                });
+            });
+        });
+    });
+
     it('does not process tileset when screen space error is not met', function() {
         return Cesium3DTilesTester.loadTileset(scene, tilesetUrl).then(function(tileset) {
             var statistics = tileset._statistics;
